@@ -1,22 +1,29 @@
 from collections import namedtuple
-CacheEntry = namedtuple('CacheEntry', 'cacheReference hashedCacheReference')
+import bisect
+
+CacheEntry = namedtuple('hashedCacheReference', 'cacheReference')
 
 class CacheEntryIndex:
     def __init__(self):
-        # TODO use list for now
-        self.cacheEntryList = []
+        self.hashedCacheReferenceList = []
+        self.cacheReferenceList = []
 
     def addEntry(self, entry):
-        self.cacheEntryList.append(entry)
+        insertPosition = bisect.bisect_left(self.hashedCacheReferenceList, entry.hashedCacheReference)
+        self.hashedCacheReference.insert(insertPosition, entry.hashedCacheReference)
+        self.cacheReferenceList.insert(insertPosition, entry.cacheReference)
 
     def findNearestCacheEntry(self, hashedCacheObject):
-        distances = [(cacheEntry.hashedCacheReference-hashedKey, cacheEntry) for cacheEntry in self.cacheEntryList]
-        distances.sort(key=lambda x: x[0])
-        return distances[0][1]
+        nearestPosition = bisect.bisect_left(self.hashedCacheReferenceList, hashedCacheObject)
+        if 0 <= i < len(self.hashedCacheReferenceList):
+            return self.cacheReferenceList[i]
+        else:
+            return None
 
 class Ring:
     # TODO does not handle virtual nodes/replicas
     # TODO cacheCount should be abstracted better
+    # TODO add replicas
     def __init__(self, hashFunction, cacheCount, ringCapacity):
         self.ringCapacity = ringCapacity
         self.hashFunction = hashFunction
@@ -24,20 +31,20 @@ class Ring:
         self.cacheEntryIndex = CacheEntryIndex()
         for _ in xrange(cacheCount):
             newCache = dict()
-            # TODO what happens on a hash collision?
-            self.cacheEntryIndex.addEntry(CacheEntry(newCache, self.hashFunction(newCache)%self.ringCapacity))
+            newCacheEntry = CacheEntry(newCache, self._getHashForObjectKey(newCache))
+            self.cacheEntryIndex.addEntry(CacheEntry(newCacheEntry))
 
-    def getHashForObjectKey(self, objectKey):
+    def _getHashForObjectKey(self, objectKey):
         return self.hashFunction(objectKey) % self.ringCapacity
 
     def put(self, objectKey, objectValue):
-        hashedKey = self.getHashForObjectKey(objectKey)
-        nearestCache = self.cacheEntryIndex.findNearestCacheEntry(hashedKey).cacheReference
+        hashedKey = self._getHashForObjectKey(objectKey)
+        nearestCache = self.cacheEntryIndex.findNearestCacheEntry(hashedKey)
         nearestCache[objectKey] = objectValue
 
     def get(self, objectKey):
-        hashedKey = self.getHashForObjectKey(objectKey)
-        nearestCache = self.cacheEntryIndex.findNearestCacheEntry(hashedKey).cacheReference
+        hashedKey = self._getHashForObjectKey(objectKey)
+        nearestCache = self.cacheEntryIndex.findNearestCacheEntry(hashedKey)
         return nearestCache[objectKey]
 
 
