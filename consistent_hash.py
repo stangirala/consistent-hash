@@ -10,9 +10,8 @@ class Ring:
         self.hashedKeyList = []
 
     def addKey(self, key):
-        hashedKey = self.hashFn(key)
         for i in xrange(self.replicas):
-            replicatedHashedKey = i + hashedKey
+            replicatedHashedKey = self.hashFn(i + key)
             insertPosition = bisect.bisect_left(self.keyList, replicatedHashedKey)
             self.hashedKeyList.insert(insertPosition, replicatedHashedKey)
             self.keyList.insert(insertPosition, key)
