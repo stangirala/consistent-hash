@@ -1,4 +1,3 @@
-from collections import namedtuple
 import bisect
 
 class Ring:
@@ -6,19 +5,22 @@ class Ring:
         self.hashFn = hashFn
         self.replicas = replicas
 
-        self.keyList = []
-        self.hashedKeyList = []
+        self.sortedHashedBucketKeys = []
+        self.bucketKeyMapping = {}
 
-    def addKey(self, key):
+    def addBucket(self, bucketKey):
+        hashedBucketKey = self.hashFn(bucketKey)
+        self.bucketKeyMapping[hashedBucketKey] = bucketKey
+        insertPosition = bisect.bisect_left(self.sortedHashedBucketKeys, hashedBucketKey)
+        self.sortedHashedBucketKeys.insert(insertPosition, hashedBucketKey)
+
+    def findBucketsForKey(self, key):
+        possibleBuckets = []
         for i in xrange(self.replicas):
-            replicatedHashedKey = self.hashFn(i + key)
-            insertPosition = bisect.bisect_left(self.keyList, replicatedHashedKey)
-            self.hashedKeyList.insert(insertPosition, replicatedHashedKey)
-            self.keyList.insert(insertPosition, key)
-
-    def findKeyGTE(self, key):
-        hashedKey = self.hashFn(key)
-        nearestPos = bisect.bisect_left(self.hashedKeyList, hashedKey)
-        if nearestPos != len(self.hashedKeyList):
-            return self.keyList[nearestPos]
-        return self.keyList[-1]
+            replicatedHashedKey = self.hashFn(key + i)
+            nearestPos = bisect.bisect_left(self.sortedHashedBucketKeys, replicatedHashedKey)
+            if nearestPos != len(self.sortedHashedBucketKeys):
+                possibleBuckets.append(self.bucketKeyMapping[self.sortedHashedBucketKeys[nearestPos]])
+            else:
+                possibleBuckets.append(self.bucketKeyMapping[self.sortedHashedBucketKeys[-1]])
+        return possibleBuckets
